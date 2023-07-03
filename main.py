@@ -17,10 +17,10 @@ def main(nodes, q, iters, d, ratio):
     d = int(d)
 
     #SETUP CSV DATA LOGGER
-    f = open('data.csv','a', encoding='UTF8', newline='')
+    f = open('plots_fixed_selection-1/data.csv','a', encoding='UTF8', newline='')
     writer = csv.writer(f)
-    # header = ['Number on Nodes Backbone', 'Ratio nodes adaptive', 'avg degree, bb', 'avg degree. c', 'avg_err']
-    # writer.writerow(header)
+    #header = ['Number on Nodes Backbone', 'Ratio nodes adaptive', 'avg degree, bb', 'avg degree. c', 'avg_err']
+    #writer.writerow(header)
 
     #CONSTANTS
     global avg_c_degree
@@ -40,8 +40,8 @@ def main(nodes, q, iters, d, ratio):
     global t, synce
     t, synce = 0, 0.0
     ratio = ratio
-    global num_adaptive
-    num_adaptive = 0
+    global num_adaptive, num_central_adaptive
+    num_adaptive, num_central_adaptive = 0, 0
 
     G = nx.barabasi_albert_graph(NODES, 3)
     pos = nx.spring_layout(G)
@@ -61,24 +61,23 @@ def main(nodes, q, iters, d, ratio):
 
     #Create Adaptive graph
     def is_adaptive(node, ratio):
-        num_of_total_adaptive = int(NODES * 0.7)
-        num_of_central_adaptive = int(num_of_total_adaptive*ratio)
-        percent_of_central = 0
-        if num_of_central_adaptive != 0:
-            percent_of_central = len(Central_Nodes)/num_of_central_adaptive
+        num_adaptive = int(NODES)
+        print("num_adaptive: " + str(num_adaptive))
+        num_central_adaptive = int(num_adaptive*ratio)
+        print("num_central: " + str(num_central_adaptive))
+        print("num_centtral_tota: " + str(len(Central_Nodes)))
+        if num_central_adaptive > len(Central_Nodes):
+            num_central_adaptive = len(Central_Nodes)
+        if num_adaptive - num_central_adaptive > len(Outer_Nodes):
+            diff = (num_adaptive-num_central_adaptive) - len(Outer_Nodes)
+            num_central_adaptive =+ diff
+        adaptiveCentral = random.sample(Central_Nodes, num_central_adaptive)
+        adaptiveOuter = random.sample(Outer_Nodes, num_adaptive - num_central_adaptive)
+
+        if node in adaptiveCentral or node in adaptiveOuter:
+            return(1)
         else:
-            percent_of_central = 0
-        if node in Central_Nodes:
-            if random.random() < percent_of_central:
-                return(1)
-            else:
-                return(0)
-            
-        else:
-            if random.random() > percent_of_central:
-                return(1)
-            else:
-                return(0)
+            return(0)
 
     for i in (Nodes_list_B):
         G.nodes[i]['Adaptive'] = is_adaptive(i, ratio)
@@ -172,7 +171,7 @@ def main(nodes, q, iters, d, ratio):
         def f(sigma, t):
             return (sigma[1], uij - (DAMP*(sigma[1])) - ((2*B*(sigma[0]-1))*sigma[0]*(2*(sigma[0])-1)))
 
-        y0 = [0.1,0.1]
+        y0 = [0.000001,0.0000001]
         step = 0
 
         xs = np.arange(0, t+1, 1)
@@ -204,9 +203,10 @@ def main(nodes, q, iters, d, ratio):
             #print("iteration = " + str(m))
 
             tplus = t + 1
+            print("t: " + str(t))
 
             for i in range(NODES):
-                iter_thru = np.linspace(t, tplus, 4)
+                iter_thru = np.linspace(t, tplus, 10)
                 for l in iter_thru:
                     x_dot = x_der(graph.nodes[i]['x_state'], graph.nodes[i]['y_state'], graph.nodes[i]['z_state'])
                     #print(x_dot)
@@ -215,26 +215,28 @@ def main(nodes, q, iters, d, ratio):
                     z_dot = z_der(graph.nodes[i]['x_state'], graph.nodes[i]['y_state'], graph.nodes[i]['z_state'])
                     #print(z_dot)
                     tplus = l
-                    xplus = graph.nodes[i]['x_state'] + 0.25*(x_dot)
-                    yplus = graph.nodes[i]['y_state'] + 0.25*(y_dot)
-                    zplus = graph.nodes[i]['z_state'] + 0.25*(z_dot)   
+                    xplus = graph.nodes[i]['x_state'] + 0.10*(x_dot)
+                    yplus = graph.nodes[i]['y_state'] + 0.10*(y_dot)
+                    zplus = graph.nodes[i]['z_state'] + 0.10*(z_dot)   
                     graph.nodes[i]['x_state'] = xplus
                     graph.nodes[i]['y_state'] = yplus
                     graph.nodes[i]['z_state'] = zplus
 
                     t = tplus
+                    
                 for j in range(NODES):
                     if(G_adaptive.has_node(i) and G_adaptive.has_node(j)):
                         uij, sigma = calculate_Sigma(i,j, graph, t)
                         #print("uij: " + str(uij))
-                        print("sigma: " + str(sigma))
-                        if (sigma) > 0.5:
-                            if (i != j and not G_adaptive.has_edge(i,j)) :
-                                G_adaptive.add_edge(i, j)
-                                print("edge created!")
-                        elif (sigma) < 0.5 and i != j and G_adaptive.has_edge(i,j):
-                            G_adaptive.remove_edge(i,j)
-                            print("edge broken!")
+                        if (sigma > 0):
+                            print("Sigma: " + str(sigma))
+                            if sigma > 0.5:
+                                if (i != j and not G_adaptive.has_edge(i,j)) :
+                                    G_adaptive.add_edge(i, j)
+                                    print("edge created!")
+                            elif sigma < 0.5 and i != j and G_adaptive.has_edge(i,j):
+                                G_adaptive.remove_edge(i,j)
+                                print("edge broken!")
 
             synce = synce + Sync_E(G)
             degree_of_graph = 2*G_adaptive.number_of_edges()/G_adaptive.number_of_nodes()
@@ -279,13 +281,13 @@ def main(nodes, q, iters, d, ratio):
     print("Average degree (Backbone): " + str(avg_b_degree))
     print("Average degree (Control): " + str(avg_c_degree))
     print("Average Error: " + str(synce))
-    data = [NODES, ratio, Di, avg_b_degree, avg_c_degree, synce]
+    data = [NODES, q, ratio, Di, num_adaptive, num_central_adaptive, synce]
     
     writer.writerow(data)
     f.close()
     name_b = str(q)
-    name_a = "plots_ratio_5/" + name_b + "A.png"
-    name_b = "plots_ratio_5/" + name_b + ".png"
+    name_a = "plots_fixed_selection-1/" + name_b + "A.png"
+    name_b = "plots_fixed_selection-1/" + name_b + ".png"
     plt.savefig(name_b)
     draw_graph(G_adaptive)
     plt.savefig(name_a)

@@ -6,23 +6,23 @@ qs = []
 avg_c = 0
 avg_cs = []
 
-def run(nodes, iters, d, times):
+def run(nodes, iters, d, times, q):
     ratio = 0.5
-    q = 0
+    q = float(q)
     for i in range(int(times)):
         avg_error, avg_c = main(nodes, q, iters, d, ratio)
         qs.append(q)
         avg_cs.append(avg_c)
         avg_errors.append(avg_error)
         q = q + 0.02
-    fig, ax = plt.subplots()
-    print(avg_errors)
-    print(avg_cs)
-    color = 'tab:blue'
-    ax.plot(qs, avg_errors)
-    ax.set_ylabel("avg_errors")
-    ax.set_xlabel("q")
-    plt.show()
+    # fig, ax = plt.subplots()
+    # print(avg_errors)
+    # print(avg_cs)
+    # color = 'tab:blue'
+    # ax.plot(qs, avg_errors)
+    # ax.set_ylabel("avg_errors")
+    # ax.set_xlabel("q")
+    # plt.show()
     # for i in range(int(times)):
     #     ratios.append(ratio)
     #     avg_error, avg_c_degree = main(nodes, q, iters, d, ratio)
@@ -47,4 +47,4 @@ def run(nodes, iters, d, times):
     # plt.show()
 
 if __name__ == '__main__':
-    run(sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4])
+    run(sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5])
