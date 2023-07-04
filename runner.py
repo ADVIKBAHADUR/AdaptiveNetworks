@@ -7,7 +7,7 @@ avg_c = 0
 avg_cs = []
 
 def run(nodes, iters, d, times, q):
-    ratio = 0.5
+    ratio = 0.3
     q = float(q)
     for i in range(int(times)):
         avg_error, avg_c = main(nodes, q, iters, d, ratio)

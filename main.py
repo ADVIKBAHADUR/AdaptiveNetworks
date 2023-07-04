@@ -1,12 +1,14 @@
 import matplotlib.pyplot as plt
 import networkx as nx
 import pandas as pd
+import math
 import numpy as np
 import random
 import copy
 import csv
 from scipy.integrate import odeint
 from pyvis.network import Network
+from itertools import product
 
 def main(nodes, q, iters, d, ratio):
     ratio = float(ratio)
@@ -17,12 +19,13 @@ def main(nodes, q, iters, d, ratio):
     d = int(d)
 
     #SETUP CSV DATA LOGGER
-    f = open('plots_fixed_selection-1/data.csv','a', encoding='UTF8', newline='')
+    f = open('results_check/results_check.csv','a', encoding='UTF8', newline='')
     writer = csv.writer(f)
     #header = ['Number on Nodes Backbone', 'Ratio nodes adaptive', 'avg degree, bb', 'avg degree. c', 'avg_err']
     #writer.writerow(header)
 
     #CONSTANTS
+    PERCENT = 0.75
     global avg_c_degree
     avg_c_degree = 0
     B1 = 1
@@ -61,7 +64,7 @@ def main(nodes, q, iters, d, ratio):
 
     #Create Adaptive graph
     def is_adaptive(node, ratio):
-        num_adaptive = int(NODES)
+        num_adaptive = int(NODES * PERCENT)
         print("num_adaptive: " + str(num_adaptive))
         num_central_adaptive = int(num_adaptive*ratio)
         print("num_central: " + str(num_central_adaptive))
@@ -86,7 +89,6 @@ def main(nodes, q, iters, d, ratio):
         G.nodes[i]['z_state'] = 0
 
     G_adaptive = copy.deepcopy(G)
-    G_adaptive.remove_edges_from(G_adaptive.edges())
 
     AdaptiveList = []
     for i in (Nodes_list_B):
@@ -199,6 +201,23 @@ def main(nodes, q, iters, d, ratio):
         avg_c_degree = 0
         xplus, yplus, zplus = 0, 0, 0
         x_dot, y_dot, z_dot = 0,0,0
+        adaptive_nodes = int(NODES*PERCENT)
+        ncols = 4
+        for i in list(G_adaptive.nodes):
+            for j in list(G_adaptive.nodes):
+                if (i != j and not G_adaptive.has_edge(i, j)):
+                    G_adaptive.add_edge(i, j)
+
+        position = {i : (i // ncols, ((adaptive_nodes) - i - 1) % ncols) for i in G_adaptive.nodes()}
+        lengths = {}
+        for edge in G_adaptive.edges():
+            startnode = edge[0]
+            endnode = edge[1]
+            lengths[edge] = round(math.sqrt(((position[endnode][1]-position[startnode][1])**2)+
+                                      ((position[endnode][0]-position[startnode][0])**2)),2)
+        print(lengths)
+        G_adaptive.remove_edges_from(G_adaptive.edges())
+
         for m in range(iters):
             #print("iteration = " + str(m))
 
@@ -225,23 +244,26 @@ def main(nodes, q, iters, d, ratio):
                     t = tplus
                     
                 for j in range(NODES):
-                    if(G_adaptive.has_node(i) and G_adaptive.has_node(j)):
-                        uij, sigma = calculate_Sigma(i,j, graph, t)
-                        #print("uij: " + str(uij))
-                        if (sigma > 0):
-                            print("Sigma: " + str(sigma))
-                            if sigma > 0.5:
-                                if (i != j and not G_adaptive.has_edge(i,j)) :
-                                    G_adaptive.add_edge(i, j)
-                                    print("edge created!")
-                            elif sigma < 0.5 and i != j and G_adaptive.has_edge(i,j):
-                                G_adaptive.remove_edge(i,j)
-                                print("edge broken!")
+                    if(G_adaptive.has_node(i) and G_adaptive.has_node(j) and i != j and (i, j) in lengths):
+                        if(float(lengths[(i,j)]) <= 1.5):
+                            #print("uij: " + str(uij))
+                            uij, sigma = calculate_Sigma(i,j, graph, t)
+                            if (sigma > 0):
+                                print("Sigma: " + str(sigma))
+                                if sigma > 0.5:
+                                    if (i != j and not G_adaptive.has_edge(i,j)) :
+                                        G_adaptive.add_edge(i, j)
+                                        print("edge created!")
+                                elif sigma < 0.5 and i != j and G_adaptive.has_edge(i,j):
+                                    G_adaptive.remove_edge(i,j)
+                                    print("edge broken!")
 
             synce = synce + Sync_E(G)
             degree_of_graph = 2*G_adaptive.number_of_edges()/G_adaptive.number_of_nodes()
             avg_c_degree = avg_c_degree + degree_of_graph
         avg_c_degree = avg_c_degree/iters
+        print(avg_c_degree)
+
         synce = synce/iters
                 
 
@@ -286,8 +308,8 @@ def main(nodes, q, iters, d, ratio):
     writer.writerow(data)
     f.close()
     name_b = str(q)
-    name_a = "plots_fixed_selection-1/" + name_b + "A.png"
-    name_b = "plots_fixed_selection-1/" + name_b + ".png"
+    name_a = "results_check/" + name_b + "A.png"
+    name_b = "results_check/" + name_b + ".png"
     plt.savefig(name_b)
     draw_graph(G_adaptive)
     plt.savefig(name_a)
